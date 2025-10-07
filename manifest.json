@@ -1,0 +1,25 @@
+{
+  "name": "SafeSource Consumer",
+  "short_name": "SafeSource",
+  "description": "Product verification app powered by SureToGo × MindTech",
+  "version": "3.0",
+  "start_url": "/consumer",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ff00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/consumer-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/consumer-512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

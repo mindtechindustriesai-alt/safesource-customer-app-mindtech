@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSource - Consumer Verification</title>
+    <link rel="manifest" href="/manifest-consumer.json">
+    <meta name="theme-color" content="#00ff00">
+    <link href="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; color: #00ff00; font-family: 'Exo', sans-serif; height: 100vh; overflow: hidden; }
+
+        /* === 6-SECOND BRANDED STARTUP === */
+        .startup-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10000;
+        }
+        .startup-logo {
+            font-family: 'Exo', sans-serif; font-size: 4rem; font-weight: 800;
+            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00; margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+        .startup-partner {
+            font-family: 'Exo', sans-serif; font-size: 1.5rem; font-weight: 600;
+            color: #00a8ff; margin-bottom: 20px;
+            animation: fadeIn 3s ease-in;
+        }
+        .loading-bar {
+            width: 250px; height: 6px; background: rgba(0, 255, 0, 0.2);
+            border-radius: 3px; margin-top: 20px; overflow: hidden;
+        }
+        .loading-progress {
+            height: 100%; background: #00ff00; animation: loading 6s ease-in-out;
+        }
+        @keyframes pulse { 
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes loading { 
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        .main-app { display: none; height: 100vh; background: #000; }
+        .container { padding: 20px; height: 100%; display: flex; flex-direction: column; }
+
+        .app-header { text-align: center; margin-bottom: 20px; }
+        .app-title { font-size: 2rem; font-weight: 800; text-shadow: 0 0 10px #00ff00; }
+        .app-subtitle { font-size: 1rem; opacity: 0.8; }
+
+        .scan-section {
+            background: rgba(0, 255, 0, 0.1); border-radius: 15px; padding: 20px;
+            text-align: center; margin-bottom: 15px; border: 2px solid #00ff00;
+        }
+        .scan-btn {
+            background: linear-gradient(45deg, #00ff00, #00a8ff); color: #000;
+            border: none; padding: 15px 25px; font-family: 'Exo', sans-serif;
+            font-size: 1.1rem; font-weight: 700; border-radius: 50px; cursor: pointer;
+            margin: 10px 0; width: 100%; box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+        }
+
+        /* === COMPACT SCANNER === */
+        .scanner-interface {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 1000; flex-direction: column;
+        }
+        .scanner-header {
+            padding: 20px; text-align: center; background: rgba(0, 255, 0, 0.1);
+            border-bottom: 2px solid #00ff00;
+        }
+        .scanner-window {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        #qr-video, #qr-canvas {
+            width: 280px; height: 280px; border-radius: 15px;
+            border: 3px solid #00ff00; box-shadow: 0 0 30px #00ff00;
+        }
+        .scanner-frame {
+            position: absolute; width: 280px; height: 280px;
+            border: 3px solid #00ff00; border-radius: 15px;
+            box-shadow: 0 0 40px #00ff00;
+        }
+        .scanner-controls {
+            padding: 20px; text-align: center; background: rgba(0, 255, 0, 0.1);
+            border-top: 2px solid #00ff00; display: flex; gap: 10px;
+        }
+        .scanner-controls button {
+            flex: 1; padding: 12px; border: none; border-radius: 10px;
+            font-family: 'Exo', sans-serif; font-weight: 600; cursor: pointer;
+        }
+
+        /* === SARS REPORTING === */
+        .report-section {
+            display: none; background: rgba(255, 68, 68, 0.1); border-radius: 15px;
+            padding: 20px; margin-bottom: 15px; border: 2px solid #ff4444;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-label { display: block; margin-bottom: 5px; font-weight: 600; color: #ff4444; }
+        .form-input, .form-select, .form-textarea {
+            width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #ff4444; border-radius: 8px; color: #fff;
+            font-family: 'Exo', sans-serif;
+        }
+        .form-textarea { height: 80px; resize: vertical; }
+        .report-btn {
+            background: linear-gradient(45deg, #ff4444, #ff0080); color: #fff;
+            border: none; padding: 15px; font-family: 'Exo', sans-serif;
+            font-size: 1.1rem; font-weight: 700; border-radius: 50px; cursor: pointer;
+            width: 100%; margin: 10px 0;
+        }
+
+        .alerts-section { margin-top: 20px; }
+        .alert-item {
+            background: rgba(255, 215, 0, 0.1); border: 1px solid #ffd700;
+            border-radius: 10px; padding: 15px; margin-bottom: 10px;
+        }
+        .alert-age { font-size: 0.8rem; opacity: 0.7; margin-top: 5px; }
+
+        .brand-footer {
+            text-align: center; margin-top: auto; padding: 15px 0;
+            font-size: 0.8rem; opacity: 0.7; border-top: 1px solid rgba(0, 255, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- 6-SECOND BRANDED STARTUP -->
+    <div class="startup-screen" id="startupScreen">
+        <div class="startup-logo">SAFESOURCE</div>
+        <div class="startup-partner">Powered by SureToGo × MindTech</div>
+        <div class="loading-bar"><div class="loading-progress"></div></div>
+    </div>
+
+    <!-- COMPACT SCANNER INTERFACE -->
+    <div class="scanner-interface" id="scannerInterface">
+        <div class="scanner-header">
+            <div style="font-family: 'Exo', sans-serif; font-weight: 800; font-size: 1.3rem;">
+                SCAN QR CODE
+            </div>
+        </div>
+        <div class="scanner-window">
+            <video id="qr-video" muted playsinline></video>
+            <canvas id="qr-canvas" style="display: none;"></canvas>
+            <div class="scanner-frame"></div>
+        </div>
+        <div class="scanner-controls">
+            <button onclick="startScanner()" style="background: #00ff00; color: #000;">
+                📷 START SCAN
+            </button>
+            <button onclick="stopScanner()" style="background: #ff4444; color: #fff;">
+                ⏹️ STOP
+            </button>
+            <button onclick="closeScanner()" style="background: #666; color: #fff;">
+                ❌ CLOSE
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION -->
+    <div class="main-app" id="mainApp">
+        <div class="container">
+            <div class="app-header">
+                <h1 class="app-title">SAFESOURCE CONSUMER</h1>
+                <p class="app-subtitle">Verify Product Authenticity</p>
+            </div>
+
+            <div class="scan-section">
+                <div style="font-size: 3rem; margin-bottom: 15px;">📱</div>
+                <h2>SCAN PRODUCT QR CODE</h2>
+                <p>Verify authenticity instantly</p>
+                <button class="scan-btn" onclick="openScanner()">🔍 LAUNCH SCANNER</button>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(0, 255, 0, 0.3);">
+                    <p>OR ENTER CODE MANUALLY:</p>
+                    <input type="text" class="form-input" id="productCode" placeholder="ENTER PRODUCT CODE">
+                    <button class="scan-btn" onclick="verifyManualCode()" 
+                            style="background: rgba(255,255,255,0.1); color: #00ff00; border: 2px solid #00ff00;">
+                        ✅ VERIFY CODE
+                    </button>
+                </div>
+            </div>
+
+            <!-- SARS REPORTING SECTION -->
+            <div class="report-section" id="reportSection">
+                <h3 style="color: #ff4444; text-align: center; margin-bottom: 15px;">
+                    🚨 SARS ILLICIT TRADE REPORT
+                </h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Product Type *</label>
+                    <select class="form-select" id="productType" required>
+                        <option value="">Select product type</option>
+                        <option value="cigarettes">Cigarettes/Tobacco</option>
+                        <option value="alcohol">Alcoholic Beverages</option>
+                        <option value="pharmaceuticals">Pharmaceuticals</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="clothing">Clothing/Footwear</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Brand Name *</label>
+                    <input type="text" class="form-input" id="brandName" placeholder="Enter brand name" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Store Name *</label>
+                    <input type="text" class="form-input" id="storeName" placeholder="Store where found" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Estimated Value (ZAR) *</label>
+                    <input type="number" class="form-input" id="estimatedValue" placeholder="e.g., 500" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Quantity Observed</label>
+                    <input type="number" class="form-input" id="quantity" placeholder="Number of items">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Additional Details</label>
+                    <textarea class="form-textarea" id="description" 
+                              placeholder="Describe the product, packaging, and any suspicious details"></textarea>
+                </div>
+
+                <button class="report-btn" onclick="submitSARSReport()">
+                    📧 SUBMIT TO SARS
+                </button>
+                
+                <div style="font-size: 0.8rem; text-align: center; margin-top: 10px; opacity: 0.7;">
+                    Report will be prepared for illicittrade@sars.gov.za
+                </div>
+            </div>
+
+            <!-- RECENT ALERTS -->
+            <div class="alerts-section" id="alertsSection">
+                <h3 style="text-align: center; margin-bottom: 15px;">📋 RECENT ALERTS (7 DAYS)</h3>
+                <div id="alertsList"></div>
+            </div>
+
+            <div class="brand-footer">
+                SafeSource Consumer App v3.1<br>
+                <small>Powered by SureToGo × MindTech</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 6-SECOND STARTUP SEQUENCE =====
+        setTimeout(() => {
+            document.getElementById('startupScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            initializeApp();
+        }, 6000);
+
+        // ===== REAL QR SCANNING ENGINE =====
+        let videoStream = null;
+        let canvasElement = null;
+        let canvasContext = null;
+        let scanning = false;
+
+        function initializeApp() {
+            canvasElement = document.getElementById('qr-canvas');
+            canvasContext = canvasElement.getContext('2d');
+            loadRecentAlerts();
+        }
+
+        async function openScanner() {
+            document.getElementById('scannerInterface').style.display = 'flex';
+        }
+
+        function closeScanner() {
+            stopScanner();
+            document.getElementById('scannerInterface').style.display = 'none';
+        }
+
+        async function startScanner() {
+            try {
+                const video = document.getElementById('qr-video');
+                video.style.display = 'block';
+                
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
+                video.srcObject = videoStream;
+                video.setAttribute("playsinline", true);
+                video.play();
+                
+                scanning = true;
+                requestAnimationFrame(scanQRCode);
+                
+            } catch (err) {
+                console.error("Camera error:", err);
+                alert("Camera access required for QR scanning");
+            }
+        }
+
+        function stopScanner() {
+            scanning = false;
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            const video = document.getElementById('qr-video');
+            video.style.display = 'none';
+        }
+
+        function scanQRCode() {
+            if (!scanning) return;
+            
+            const video = document.getElementById('qr-video');
+            const canvas = document.getElementById('qr-canvas');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                canvasContext.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                
+                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    console.log("QR Code detected:", code.data);
+                    stopScanner();
+                    closeScanner();
+                    verifyProduct(code.data);
+                }
+            }
+            
+            requestAnimationFrame(scanQRCode);
+        }
+
+        // ===== PRODUCT VERIFICATION =====
+        function verifyManualCode() {
+            const productCode = document.getElementById('productCode').value.trim();
+            if (productCode) {
+                verifyProduct(productCode);
+            } else {
+                alert("Please enter a product code");
+            }
+        }
+
+        function verifyProduct(productCode) {
+            // Simulate verification logic
+            const isVerified = Math.random() > 0.3; // 70% verified rate
+            
+            if (isVerified) {
+                showVerificationResult(true, productCode);
+            } else {
+                showVerificationResult(false, productCode);
+                autoPopulateSARSFields(productCode);
+            }
+            
+            // Add to verification history
+            addToHistory({
+                productCode: productCode,
+                verified: isVerified,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        function showVerificationResult(verified, productCode) {
+            if (verified) {
+                alert(`✅ PRODUCT VERIFIED\n\nCode: ${productCode}\nThis product is authentic and safe.`);
+            } else {
+                alert(`❌ PRODUCT NOT VERIFIED\n\nCode: ${productCode}\nThis product may be counterfeit.`);
+                document.getElementById('reportSection').style.display = 'block';
+            }
+        }
+
+        // ===== SARS REPORTING WITH AUTO-POPULATION =====
+        async function autoPopulateSARSFields(productCode) {
+            try {
+                // Get GPS location
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    });
+                });
+                
+                const gps = {
+                    latitude: position.coords.latitude.toFixed(6),
+                    longitude: position.coords.longitude.toFixed(6)
+                };
+                
+                // Auto-detect nearby store
+                const storeInfo = await detectNearbyStore(gps);
+                
+                // Auto-populate form
+                document.getElementById('storeName').value = storeInfo.name;
+                
+                // Set GPS coordinates in hidden field or data attribute
+                document.getElementById('storeName').dataset.gps = `${gps.latitude}, ${gps.longitude}`;
+                
+            } catch (error) {
+                console.log("GPS unavailable, using manual entry");
+            }
+        }
+
+        async function detectNearbyStore(gps) {
+            // Mock store detection - in production, use Google Places API
+            const stores = [
+                { name: "Boxer Stores - Cape Town", address: "123 Main St" },
+                { name: "Pick n Pay - City Center", address: "456 Broad St" },
+                { name: "Spar - Local Branch", address: "789 Market St" }
+            ];
+            return stores[Math.floor(Math.random() * stores.length)];
+        }
+
+        function submitSARSReport() {
+            const formData = {
+                productType: document.getElementById('productType').value,
+                brandName: document.getElementById('brandName').value,
+                storeName: document.getElementById('storeName').value,
+                estimatedValue: document.getElementById('estimatedValue').value,
+                quantity: document.getElementById('quantity').value,
+                description: document.getElementById('description').value,
+                gps: document.getElementById('storeName').dataset.gps || 'Not available',
+                timestamp: new Date().toISOString()
+            };
+            
+            // Validate required fields
+            if (!formData.productType || !formData.brandName || !formData.storeName || !formData.estimatedValue) {
+                alert("Please fill in all required fields (marked with *)");
+                return;
+            }
+            
+            const emailTemplate = generateSARSEmail(formData);
+            showEmailPreview(emailTemplate);
+            
+            // Add to alerts
+            addAlert({
+                type: 'sars_report',
+                store: formData.storeName,
+                product: formData.brandName,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Reset form
+            document.getElementById('reportSection').style.display = 'none';
+            document.querySelector('#reportSection form').reset();
+        }
+
+        function generateSARSEmail(data) {
+            return `
+Subject: Illicit Trade Report - SafeSource Automated Detection
+
+Dear SARS Illicit Trade Unit,
+
+I wish to report suspected illicit trade activity detected via SafeSource:
+
+PRODUCT DETAILS:
+- Product Type: ${data.productType}
+- Brand: ${data.brandName}
+- Estimated Value: R${data.estimatedValue}
+- Quantity: ${data.quantity || 'Not specified'}
+
+LOCATION INFORMATION:
+- Store Name: ${data.storeName}
+- GPS Coordinates: ${data.gps}
+- Date/Time: ${new Date(data.timestamp).toLocaleString()}
+
+ADDITIONAL INFORMATION:
+${data.description || 'No additional details provided'}
+
+This report was generated automatically through SafeSource supply chain verification.
+
+For verification purposes, this report originates from SafeSource Consumer App.
+
+Regards,
+SafeSource Reporting System
+Powered by SureToGo × MindTech
+            `.trim();
+        }
+
+        function showEmailPreview(template) {
+            const preview = `
+🚨 SARS REPORT READY
+
+Your report has been prepared for submission to:
+illicittrade@sars.gov.za
+
+The email template is ready. In production, this would automatically open your email client.
+
+${template}
+            `;
+            alert(preview);
+        }
+
+        // ===== ALERT MANAGEMENT (7-DAY RETENTION) =====
+        function addAlert(alert) {
+            const alerts = JSON.parse(localStorage.getItem('safesource-alerts')) || [];
+            alerts.unshift({
+                ...alert,
+                id: Date.now()
+            });
+            
+            // Keep only last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
+            const filteredAlerts = alerts.filter(alert => 
+                new Date(alert.timestamp) > sevenDaysAgo
+            ).slice(0, 50); // Max 50 alerts
+            
+            localStorage.setItem('safesource-alerts', JSON.stringify(filteredAlerts));
+            loadRecentAlerts();
+        }
+
+        function loadRecentAlerts() {
+            const alerts = JSON.parse(localStorage.getItem('safesource-alerts')) || [];
+            const alertsList = document.getElementById('alertsList');
+            
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<div style="text-align: center; opacity: 0.7; padding: 20px;">No recent alerts</div>';
+                return;
+            }
+            
+            alertsList.innerHTML = alerts.map(alert => `
+                <div class="alert-item">
+                    <strong>${alert.type === 'sars_report' ? '🚨 SARS Report' : '⚠️ Verification Failed'}</strong><br>
+                    ${alert.store || alert.product || 'Unknown'}<br>
+                    <div class="alert-age">${timeAgo(new Date(alert.timestamp))}</div>
+                </div>
+            `).join('');
+        }
+
+        function timeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'Just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
+        function addToHistory(verification) {
+            const history = JSON.parse(localStorage.getItem('verification-history')) || [];
+            history.unshift(verification);
+            
+            // Keep only last 50 verifications
+            if (history.length > 50) history.pop();
+            
+            localStorage.setItem('verification-history', JSON.stringify(history));
+        }
+    </script>
+</body>
+</html>
